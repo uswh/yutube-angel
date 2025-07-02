@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,17 +13,39 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailCtrl = TextEditingController();
   final TextEditingController _passwordCtrl = TextEditingController();
+  bool _isLoading = false;
 
-  void _login() {
-    if (_formKey.currentState!.validate()) {
-      // Cek email dan password bisa disesuaikan di sini
-      if (_emailCtrl.text == "user@example.com" && _passwordCtrl.text == "123456") {
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    final url = Uri.parse('http://10.100.5.137/auth_api/login.php');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": _emailCtrl.text.trim(),
+          "password": _passwordCtrl.text.trim(),
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(data['message'])),
+      );
+
+      if (data['status'] == 'success') {
         Navigator.pushReplacementNamed(context, '/home');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Email atau password salah')),
-        );
       }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Terjadi kesalahan saat login')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -53,10 +77,16 @@ class _LoginPageState extends State<LoginPage> {
                     value != null && value.length >= 6 ? null : 'Minimal 6 karakter',
               ),
               const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _login,
-                child: const Text('Login'),
-              ),
+              _isLoading
+                  ? const CircularProgressIndicator()
+                  : ElevatedButton(
+                      onPressed: _login,
+                      child: const Text('Login'),
+                    ),
+              TextButton(
+                onPressed: () => Navigator.pushReplacementNamed(context, '/register'),
+                child: const Text("Belum punya akun? Register di sini"),
+              )
             ],
           ),
         ),
